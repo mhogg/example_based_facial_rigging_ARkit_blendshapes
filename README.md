@@ -14,10 +14,11 @@ The meshes used in the data folder are only for demonstration purposes and origi
 
 
 ## Dependencies
-* numpy
+* numpy==1.22
 * scipy
 * numba
 * qpsolvers
+* pandas
 * plotly
-* pickle
 * tqdm
+* jupyterlab
