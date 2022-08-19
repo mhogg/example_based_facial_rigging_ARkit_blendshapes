@@ -3,20 +3,20 @@ import os
 import time
 import local_packages.tools3d_ as t3d 
 from scipy.optimize import lsq_linear
-from IPython.display import clear_output
+#from IPython.display import clear_output
 from scipy.sparse import csr_matrix
 import scipy.sparse as sp
-from scipy.sparse.linalg import spsolve
-from qpsolvers import solve_qp
-import numba
-from numba import jit
-from numba.core.extending import overload
-from numba.np.linalg import norm_impl
-from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning, NumbaPerformanceWarning
-import warnings
-warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
-warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
-warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
+#from scipy.sparse.linalg import spsolve
+#from qpsolvers import solve_qp
+#import numba
+#from numba import jit
+#from numba.core.extending import overload
+#from numba.np.linalg import norm_impl
+#from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning, NumbaPerformanceWarning
+#import warnings
+#warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
+#warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+#warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
 from tqdm import tqdm
 
 
@@ -98,7 +98,7 @@ def columnise(model):
     return model
 
 
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def local_tri_frame_fast(vertices, triangles, tri_index):
     
     tri_vertices = vertices[triangles[tri_index, :], :]
@@ -116,26 +116,28 @@ def local_tri_frame_fast(vertices, triangles, tri_index):
     return LF
 
 
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def compute_lf_fast (vertices, triangles):
 
     lf = np.zeros((len(triangles)*3, 3))
-    for i in numba.prange(len(triangles)): 
+    #for i in numba.prange(len(triangles)):
+    for i in range(len(triangles)): 
         lf[i*3:i*3+3]= local_tri_frame_fast(vertices, triangles, i)
     
     return lf
 
 
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def compute_lf_inverse_fast(vertices, triangles):
   
     lf_inv = np.zeros((len(triangles)*3, 3))
-    for i in numba.prange(len(triangles)):  
+    #for i in numba.prange(len(triangles)): 
+    for i in range(len(triangles)):  
         lf_inv[i*3:i*3+3] = np.linalg.inv(local_tri_frame_fast(vertices, triangles, i))
     return lf_inv
 
 
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def make_M_S_minus_M_B_0_fast(S_training_poses, B_0, triangles):
     
     m = len(S_training_poses)
@@ -143,7 +145,8 @@ def make_M_S_minus_M_B_0_fast(S_training_poses, B_0, triangles):
     M_S_minus_M_B_0 = np.empty((m, len(triangles)*3, 3))
     M_S = np.empty((m, len(triangles)*3, 3))
 
-    for s in numba.prange(m):
+    #for s in numba.prange(m):
+    for s in range(m):
         M_S_temp = compute_lf_fast(S_training_poses[s], triangles)
         M_S_minus_M_B_0[s] = M_S_temp - M_B_0     
         M_S[s] = M_S_temp
@@ -151,21 +154,24 @@ def make_M_S_minus_M_B_0_fast(S_training_poses, B_0, triangles):
     return M_S_minus_M_B_0 , M_B_0, M_S
 
 
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def make_W_seed_fast(triangles, A_BS_model, kappa, theta):  
     n = len(A_BS_model) 
     W_seed = np.empty((n, len(triangles)))
-    for i in numba.prange(n):
+    
+    #for i in numba.prange(n):
+    for i in range(n):
         M_A_i = compute_lf_fast(A_BS_model[i], triangles)
         
-        for j in numba.prange(len(triangles)):
+        #for j in numba.prange(len(triangles)):
+        for j in range(len(triangles)):
             lf_tri_norm = np.linalg.norm(M_A_i[j*3:j*3+3,:])
             W_seed[i,j] = (1 + lf_tri_norm)/np.power((kappa + lf_tri_norm), theta)
             
     return W_seed
 
 
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def make_M_A_star_fast(triangles, A_0, B_0, A_BS_model):
     n = len(A_BS_model)
     M_A_star = np.empty((n, len(triangles)*3, 3))
@@ -173,11 +179,13 @@ def make_M_A_star_fast(triangles, A_0, B_0, A_BS_model):
     M_A_0 = compute_lf_fast(A_0, triangles)
     M_B_0 = compute_lf_fast(B_0, triangles)
 
-    for i in numba.prange(n):
+    #for i in numba.prange(n):
+    for i in range(n):
         M_A_i = compute_lf_fast(A_BS_model[i], triangles)
         M_A_sum = M_A_0 + M_A_i 
         
-        for j in numba.prange(len(triangles)):   
+        #for j in numba.prange(len(triangles)): 
+        for j in range(len(triangles)): 
             M_A_star[i][j*3:j*3+3] = ((M_A_sum[j*3:j*3+3] @ M_A_0_inv[j*3:j*3+3]) @ M_B_0[j*3:j*3+3]) - M_B_0[j*3:j*3+3]
         
     return M_A_star
@@ -185,10 +193,11 @@ def make_M_A_star_fast(triangles, A_0, B_0, A_BS_model):
 
     
 # Parallel version lf optimisation
-@jit(nopython=True, parallel=True)
+#@jit(nopython=True, parallel=True)
 def lf_optimisation (num_triangles, A, M_S_minus_M_B_0, M_B, M_A_star, beta, gamma, W_seed, opt_iteration, n, m):
     
-    for tri_index in numba.prange(num_triangles): 
+    #for tri_index in numba.prange(num_triangles):
+    for tri_index in range(num_triangles): 
          # Constructing Bfit
         B_fit = np.zeros((n*3,3))
         B_fit = A.T @ M_S_minus_M_B_0[:,tri_index*3:tri_index*3+3,:].copy().reshape(m*3,3)
